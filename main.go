@@ -19,11 +19,19 @@ func main() {
 
 	events := []montecargo.Event{
 		{
-			Name:       "Phishing Attack",
-			LowerProb:  0.60,
-			UpperProb:  0.80,
-			Confidence: 0.85,
-			Timeframe:  montecargo.Yearly,
+			Name:             "Host-Level Breach Detected",
+			LowerProb:        0.80,
+			LowerProbStdDev:  float64Pointer(0.10),
+			UpperProb:        0.95,
+			UpperProbStdDev:  float64Pointer(0.05),
+			Confidence:       0.6,
+			ConfidenceStdDev: float64Pointer(0.10),
+			MinImpact:        float64Pointer(5000),
+			MaxImpact:        float64Pointer(10000),
+			MinImpactStdDev:  float64Pointer(10000),
+			MaxImpactStdDev:  float64Pointer(10000),
+			Timeframe:        montecargo.Monthly,
+			IsCostSaving:     true,
 		},
 		{
 			Name:       "Ransomware Attack",
@@ -76,18 +84,35 @@ func main() {
 	dependencies := map[string][]montecargo.Dependency{
 		"Ransomware Attack": {
 			{EventName: "Data Breach", Condition: "happens"},
-			{EventName: "Phishing Attack", Condition: "not happens"},
+			{EventName: "Host-Level Breach Detected", Condition: "not happens"},
+		},
+		"Insider Threat": {
+			{EventName: "Host-Level Breach Detected", Condition: "not happens"},
 		},
 		// ... other dependencies ...
 	}
 
 	// Perform Monte Carlo Simulation
 	numSimulations := 10_000_000
-	montecargo.MonteCarloSimulation(&events, numSimulations, dependencies)
+	simulationResult := montecargo.MonteCarloSimulation(events, numSimulations, dependencies)
 
+	// Calculate event statistics
+	eventStats := montecargo.CalculateEventStats(simulationResult.EventResults, numSimulations)
+
+	// Calculate expected loss range
+	totalMinLoss, totalMaxLoss, totalAvgLoss, probExceedTotalMin, probExceedTotalMax, lossBreakdown := montecargo.CalculateExpectedLossRange(events, eventStats)
+
+	fmt.Printf("Total Expected Minimum Loss: $%.2f\n", totalMinLoss)
+	fmt.Printf("Total Expected Maximum Loss: $%.2f\n", totalMaxLoss)
+	fmt.Printf("Total Expected Average Loss: $%.2f\n", totalAvgLoss)
+	fmt.Printf("Probability of Exceeding Total Min Loss: %.2f%%\n", probExceedTotalMin*100)
+	fmt.Printf("Probability of Exceeding Total Max Loss: %.2f%%\n", probExceedTotalMax*100)
+
+	fmt.Println()
 	// Output the results and calculate standard deviation
 	for _, event := range events {
-		probability, probStdDev, impactMean, impactStdDev := montecargo.MeanSTD(event, numSimulations)
+		eventResult := simulationResult.EventResults[event.Name]
+		probability, probStdDev, impactMean, impactStdDev := montecargo.MeanSTD(eventResult, numSimulations)
 
 		// Calculate the upper and lower bounds for probability
 		probLowerBound := probability - probStdDev
@@ -109,13 +134,34 @@ func main() {
 		fmt.Printf("  Chance within %s: %.2f%% to %.2f%%\n", timeframeStr, probLowerBound*100, probUpperBound*100)
 
 		// Print impact information if applicable
-		if event.MinImpact != nil || event.MaxImpact != nil {
+		if (event.MinImpact != nil || event.MaxImpact != nil) && !event.IsCostSaving {
 			impactLowerBound := impactMean - impactStdDev
 			impactUpperBound := impactMean + impactStdDev
-
+			// Output for cost-incurring events
 			fmt.Printf("  Mean Financial Impact: $%.2f\n", impactMean)
 			fmt.Printf("  Financial Impact Standard Deviation: $%.2f\n", impactStdDev)
 			fmt.Printf("  Expected Financial Impact Range within %s: $%.2f to $%.2f\n", timeframeStr, impactLowerBound, impactUpperBound)
+
+		}
+
+		if event.IsCostSaving {
+			lowerBound := impactMean - impactStdDev
+			upperBound := impactMean + impactStdDev
+
+			// Output for cost-saving events
+			fmt.Printf("  Estimated Savings: $%.2f\n", -impactMean)
+			fmt.Printf("  Savings Standard Deviation: $%.2f\n", impactStdDev)
+			fmt.Printf("  Expected Savings Range within %s: $%.2f to $%.2f\n", timeframeStr, -upperBound, -lowerBound)
+
+		} else {
+
+			lossInfo := lossBreakdown[event.Name]
+			fmt.Printf("  Min Loss: $%.2f\n", lossInfo.MinLoss)
+			fmt.Printf("  Max Loss: $%.2f\n", lossInfo.MaxLoss)
+			fmt.Printf("  Probability of Exceeding Min Loss: %.2f%%\n", lossInfo.ProbabilityExceedMin*100)
+			fmt.Printf("  Probability of Exceeding Max Loss: %.2f%%\n", lossInfo.ProbabilityExceedMax*100)
+			fmt.Printf("  Probability of Exceeding Avg Loss: %.2f%%\n", lossInfo.ProbabilityExceedAvg*100)
+			fmt.Println()
 		}
 	}
 

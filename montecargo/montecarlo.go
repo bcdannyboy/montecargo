@@ -1,35 +1,24 @@
 package montecargo
 
-import (
-	"runtime"
-	"sync"
-)
+// MonteCarloSimulation orchestrates the Monte Carlo simulation process.
+func MonteCarloSimulation(events []Event, numSimulations int, dependencies map[string][]Dependency) SimulationResult {
+	// Filter events into independent and dependent categories
+	independentEvents := filterIndependentEvents(events, dependencies)
+	dependentEvents := filterDependentEvents(events, dependencies)
 
-func MonteCarloSimulation(events *[]Event, numSimulations int, dependencies map[string][]Dependency) {
-	var wg sync.WaitGroup
-	numCPU := runtime.NumCPU()
-	resultsChan := make(chan [][3]int, numSimulations*numCPU)
+	// Run simulation for independent events
+	independentResults := simulate(independentEvents, numSimulations, map[string]EventStat{}, dependencies)
 
-	// Simulate independent events
-	independentEvents := filterIndependentEvents(*events, dependencies)
-	wg.Add(1)
-	go simulate(&independentEvents, numSimulations, &wg, resultsChan)
+	// Run simulation for dependent events
+	dependentResults := simulateDependent(dependentEvents, numSimulations, dependencies, map[string]EventStat{})
 
-	// Calculate probabilities and standard deviations for independent events
-	var mutex sync.Mutex
-	eventStats := calculateEventStats(independentEvents, numSimulations)
+	// Combine results from independent and dependent simulations
+	combinedResults := combineSimulationResults(independentResults, dependentResults)
 
-	// Simulate dependent events
-	dependentEvents := filterDependentEvents(*events, dependencies)
-	wg.Add(1)
-	go simulateDependent(&dependentEvents, numSimulations, &wg, resultsChan, dependencies, eventStats, &mutex)
+	// Calculate statistics for all events based on the combined results
+	// allEventStats := CalculateEventStats(combinedResults.EventResults, numSimulations)
 
-	// Wait for all simulations to finish
-	wg.Wait()
-
-	// Close the channel when all goroutines are done
-	close(resultsChan)
-
-	// Collect results and update sums
-	collectResults(events, resultsChan)
+	// Convert the map of EventResults to a SimulationResult
+	finalResults := SimulationResult{EventResults: combinedResults.EventResults}
+	return finalResults
 }

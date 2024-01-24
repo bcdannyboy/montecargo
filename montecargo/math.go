@@ -5,21 +5,18 @@ import (
 	"math/rand"
 )
 
-func MeanSTD(event Event, numSimulations int) (probability, probStdDev, impactMean, impactStdDev float64) {
-	probability = float64(event.Sum) / float64(numSimulations)
+func MeanSTD(eventResult EventResult, numSimulations int) (probability, probStdDev, impactMean, impactStdDev float64) {
+	probability = float64(eventResult.Sum) / float64(numSimulations)
 	probMean := probability
-	probVariance := (event.SumOfSquares / float64(numSimulations)) - (probMean * probMean)
+	probVariance := (eventResult.SumOfSquares / float64(numSimulations)) - (probMean * probMean)
 	probStdDev = math.Sqrt(probVariance)
 
-	// Check if impacts are used (i.e., MinImpact and MaxImpact are not nil)
-	if event.MinImpact != nil && event.MaxImpact != nil {
-		// Calculating mean and standard deviation for impact
-		// Note: Impact calculations are only relevant when the event occurs (event.Sum > 0)
-		if event.Sum > 0 {
-			impactMean = event.ImpactSum / float64(event.Sum)
-			impactVariance := (event.ImpactSumOfSquares / float64(event.Sum)) - (impactMean * impactMean)
-			impactStdDev = math.Sqrt(impactVariance)
-		}
+	// Calculating mean and standard deviation for impact
+	// Note: Impact calculations are only relevant when the event occurs (eventResult.Sum > 0)
+	if eventResult.Sum > 0 {
+		impactMean = eventResult.ImpactSum / float64(eventResult.Sum)
+		impactVariance := (eventResult.ImpactSumOfSquares / float64(eventResult.Sum)) - (impactMean * impactMean)
+		impactStdDev = math.Sqrt(impactVariance)
 	}
 
 	return
@@ -57,20 +54,127 @@ func adjustDependentProbability(probability, dependencyProb, dependencyStdDev fl
 	return adjustedProbability
 }
 
-func calculateEventStats(events []Event, numSimulations int) map[string](struct {
-	Probability float64
-	StdDev      float64
-}) {
-	eventStats := make(map[string](struct {
-		Probability float64
-		StdDev      float64
-	}))
-	for _, event := range events {
-		probability, stdDev, _, _ := MeanSTD(event, numSimulations)
-		eventStats[event.Name] = struct {
-			Probability float64
-			StdDev      float64
-		}{Probability: probability, StdDev: stdDev}
+func CalculateEventStats(simulationResults map[string]EventResult, numSimulations int) map[string]EventStat {
+	eventStats := make(map[string]EventStat)
+
+	for eventName, eventResult := range simulationResults {
+		probability, stdDev, _, _ := MeanSTD(eventResult, numSimulations)
+		eventStats[eventName] = EventStat{
+			Probability: probability,
+			StdDev:      stdDev,
+		}
 	}
+
 	return eventStats
+}
+
+func NormalCDF(x, mean, stdDev float64) float64 {
+	return 0.5 * (1 + math.Erf((x-mean)/(stdDev*math.Sqrt2)))
+}
+
+func CalculateExpectedLossRange(events []Event, eventStats map[string]EventStat) (float64, float64, float64, float64, float64, map[string]struct {
+	MinLoss              float64
+	MaxLoss              float64
+	AvgLoss              float64
+	ProbabilityExceedMin float64
+	ProbabilityExceedMax float64
+	ProbabilityExceedAvg float64
+}) {
+	totalMinLoss := 0.0
+	totalMaxLoss := 0.0
+	totalAvgLoss := 0.0
+	var totalVariance float64
+	lossBreakdown := make(map[string]struct {
+		MinLoss              float64
+		MaxLoss              float64
+		AvgLoss              float64
+		ProbabilityExceedMin float64
+		ProbabilityExceedMax float64
+		ProbabilityExceedAvg float64
+	})
+
+	for _, event := range events {
+		stat, exists := eventStats[event.Name]
+		if exists && event.MinImpact != nil && event.MaxImpact != nil {
+			eventMinLoss := *event.MinImpact * stat.Probability
+			eventMaxLoss := *event.MaxImpact * stat.Probability
+			eventAvgLoss := (eventMinLoss + eventMaxLoss) / 2
+			totalMinLoss += eventMinLoss
+			totalMaxLoss += eventMaxLoss
+			totalAvgLoss += eventAvgLoss
+			totalVariance += stat.StdDev * stat.StdDev
+
+			// Calculate probabilities of exceeding min, max, and avg loss
+			probExceedMin := 1 - NormalCDF(eventMinLoss, eventAvgLoss, stat.StdDev)
+			probExceedMax := 1 - NormalCDF(eventMaxLoss, eventAvgLoss, stat.StdDev)
+			probExceedAvg := 1 - NormalCDF(eventAvgLoss, eventAvgLoss, stat.StdDev)
+
+			lossBreakdown[event.Name] = struct {
+				MinLoss              float64
+				MaxLoss              float64
+				AvgLoss              float64
+				ProbabilityExceedMin float64
+				ProbabilityExceedMax float64
+				ProbabilityExceedAvg float64
+			}{
+				MinLoss:              eventMinLoss,
+				MaxLoss:              eventMaxLoss,
+				AvgLoss:              eventAvgLoss,
+				ProbabilityExceedMin: probExceedMin,
+				ProbabilityExceedMax: probExceedMax,
+				ProbabilityExceedAvg: probExceedAvg,
+			}
+		}
+	}
+
+	totalStdDev := math.Sqrt(totalVariance)
+	probExceedTotalMin := 1 - NormalCDF(totalMinLoss, totalAvgLoss, totalStdDev)
+	probExceedTotalMax := 1 - NormalCDF(totalMaxLoss, totalAvgLoss, totalStdDev)
+
+	return totalMinLoss, totalMaxLoss, totalAvgLoss, probExceedTotalMin, probExceedTotalMax, lossBreakdown
+}
+
+func calculateImpact(event Event, probability float64, localRand *rand.Rand) int {
+	if event.MinImpact == nil || event.MaxImpact == nil {
+		return 0
+	}
+
+	impactRange := *event.MaxImpact - *event.MinImpact
+	impact := *event.MinImpact + impactRange*localRand.Float64()
+
+	if event.ConfidenceStdDev != nil {
+		impactAdjustment := localRand.NormFloat64() * *event.ConfidenceStdDev
+		impact += impactAdjustment
+	}
+
+	if event.IsCostSaving {
+		return -int(impact * probability) // Negative impact for cost savings
+	}
+	return int(impact * probability) // Positive impact for losses
+}
+
+func calculateTotalMitigatedImpact(costSavingEvent Event, events []Event, eventStats map[string]EventStat, dependencies map[string][]Dependency) float64 {
+	totalSavings := 0.0
+	costSavingEventStat, exists := eventStats[costSavingEvent.Name]
+	if !exists {
+		return 0.0
+	}
+
+	// Determine the number of occurrences based on the timeframe
+	occurrences := getOccurrencesPerYear(costSavingEvent.Timeframe)
+
+	for _, dep := range dependencies[costSavingEvent.Name] {
+		if dep.Condition == "not happens" {
+			dependentEventStat, exists := eventStats[dep.EventName]
+			if exists {
+				dependentEvent, found := findEventByName(events, dep.EventName)
+				if found && dependentEvent.MinImpact != nil && dependentEvent.MaxImpact != nil {
+					avgImpact := (*dependentEvent.MinImpact + *dependentEvent.MaxImpact) / 2
+					savings := avgImpact * (1 - dependentEventStat.Probability) * costSavingEventStat.Probability
+					totalSavings += savings * occurrences
+				}
+			}
+		}
+	}
+	return totalSavings
 }

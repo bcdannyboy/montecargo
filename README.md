@@ -9,6 +9,7 @@
 - **Multivariate Event Dependencies:** Define multiple dependencies between events to simulate cascading effects. ('happens' or 'not happens' conditions)
 - **Timeframe Adjustments:** Adjust event probabilities based on different timeframes (e.g., daily, yearly).
 - **Impact Analysis:** Calculate financial impacts of events, including mean and standard deviation.
+- **Cost Savings Analysis:** Evaluate the financial benefits of preventive measures and cost-saving events.
 - **Concurrency Support:** Leverages Go's concurrency features for efficient simulation over multiple CPU cores.
 
 ## Installation
@@ -21,14 +22,15 @@ To install `montecargo`, use the following `go get` command:
 
 The core of montecargo is the Event type, which represents a potential event that can occur in a simulation. Each Event includes several fields:
 
-- *Name*: A descriptive name of the event.
-- *LowerProb* and UpperProb: Define the lower and upper bounds of the event's probability.
-- *LowerProbStdDev* and UpperProbStdDev: (Optional) Standard deviations for the lower and upper probability bounds.
-- *Confidence*: A confidence level for the event's probability.
-- *ConfidenceStdDev*: (Optional) Standard deviation for the confidence level.
-- *Timeframe*: The timeframe over which the event probability is considered (e.g., Yearly, Monthly).
-- *MinImpact* and *MaxImpact*: (Optional) Define the minimum and maximum financial impacts of the event.
-- *MinImpactStdDev* and *MaxImpactStdDev*: (Optional) Standard deviations for the minimum and maximum impacts.
+    - *Name*: A descriptive name of the event.
+    - *LowerProb* and *UpperProb*: Define the lower and upper bounds of the event's probability.
+    - *LowerProbStdDev* and *UpperProbStdDev*: (Optional) Standard deviations for the lower and upper probability bounds.
+    - *Confidence*: A confidence level for the event's probability.
+    - *ConfidenceStdDev*: (Optional) Standard deviation for the confidence level.
+    - *Timeframe*: The timeframe over which the event probability is considered (e.g., Yearly, Monthly).
+    - *MinImpact* and *MaxImpact*: (Optional) Define the minimum and maximum financial impacts of the event.
+    - *MinImpactStdDev* and *MaxImpactStdDev*: (Optional) Standard deviations for the minimum and maximum impacts.
+    - *IsCostSaving*: Indicates if the event is a cost-saving measure.
 
 ##  TimeFrames
 
