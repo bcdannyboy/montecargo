@@ -42,6 +42,28 @@ montecargo supports various timeframes for event probability calculations. The a
 - *EveryFiveYears*: Event probability adjusted for occurrence every five years.
 - *EveryTenYears*: Event probability adjusted for occurrence every ten years.
 
+## Dependency Types
+
+In `montecargo`, dependencies between events are a crucial aspect of the simulation. They allow for the modeling of complex scenarios where the occurrence of one event can influence the likelihood of another. There are two primary types of dependencies that can be defined:
+
+- **Happens Dependency**: This type of dependency indicates that the occurrence of one event increases the likelihood of another event happening. For example, if a "Data Breach" event happens, it might increase the probability of a "Ransomware Attack".
+
+- **Not Happens Dependency**: Conversely, this dependency type suggests that the non-occurrence of one event affects the likelihood of another event. For instance, if a "Breach Detection" event does not happen, it could increase the chances of a successful "Ransomware Attack".
+
+### Defining Dependencies
+
+Dependencies are defined in a map where the key is the name of the dependent event, and the value is a slice of `montecargo.Dependency` structs. Each `Dependency` struct includes the `EventName` and the `Condition` (either "happens" or "not happens"). Here's an example of defining dependencies:
+
+    ```
+    dependencies := map[string][]montecargo.Dependency{
+        "Ransomware Attack": {
+            {EventName: "Data Breach", Condition: "happens"},          // Ransomware attack depends on data breach happening
+            {EventName: "Breach Detection", Condition: "not happens"}, // Ransomware attack depends on breach detection not happening
+        },
+        // ... other dependencies ...
+    }
+    ```
+
 # Usage
 
 ## Basic Usage
