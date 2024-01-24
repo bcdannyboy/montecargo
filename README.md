@@ -6,6 +6,7 @@
 
 - **Event-Based Simulations:** Simulate a wide range of events with customizable probabilities and impacts.
 - **Survey Support:** Import probabilities from survey data with standard deviations and confidence intervals.
+- **Event Dependencies:** Define dependencies between events to simulate cascading effects.
 - **Timeframe Adjustments:** Adjust event probabilities based on different timeframes (e.g., daily, yearly).
 - **Impact Analysis:** Calculate financial impacts of events, including mean and standard deviation.
 - **Concurrency Support:** Leverages Go's concurrency features for efficient simulation over multiple CPU cores.
@@ -64,14 +65,22 @@ montecargo supports various timeframes for event probability calculations. The a
     }
     ```
 
-3. Run the simulation
+3. Define Dependencies
+
+    ```
+        dependencies := map[string]string{
+            "Ransomware Attack": "Data Breach", // Ransomware Attack depends on Data Breach
+            // ... other dependencies ...
+        }
+    ```
+4. Run the simulation
 
     ```
     numSimulations := 100000
-    montecargo.MonteCarloSimulation(&events, numSimulations)
+	montecargo.MonteCarloSimulation(&events, numSimulations, dependencies)
     ```
 
-4. Analyze Results
+5. Analyze Results
 
     ```
     for _, event := range events {

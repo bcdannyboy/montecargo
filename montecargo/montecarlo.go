@@ -7,10 +7,10 @@ import (
 	"time"
 )
 
-func MonteCarloSimulation(events *[]Event, numSimulations int) {
+func MonteCarloSimulation(events *[]Event, numSimulations int, dependencies map[string]string) {
 	var wg sync.WaitGroup
 	cpuCores := runtime.NumCPU()
-	resultsChan := make(chan [][3]int, cpuCores) // Updated to handle impact
+	resultsChan := make(chan [][3]int, cpuCores)
 
 	for i := 0; i < cpuCores; i++ {
 		wg.Add(1)
@@ -18,9 +18,22 @@ func MonteCarloSimulation(events *[]Event, numSimulations int) {
 			defer wg.Done()
 			localRand := rand.New(rand.NewSource(time.Now().UnixNano()))
 			for j := 0; j < numSimulations/cpuCores; j++ {
-				batchResults := make([][3]int, len(*events)) // Updated to handle impact
+				batchResults := make([][3]int, len(*events))
+				eventResults := make(map[string]float64)
+
 				for k, event := range *events {
 					adjustedProb := adjustProbabilityForTimeframe(event)
+
+					// Check if the event has a dependency
+					if dependentEventName, exists := dependencies[event.Name]; exists {
+						dependentEventProb, occurred := eventResults[dependentEventName]
+						if !occurred {
+							adjustedProb = 0 // Set probability to 0 if the dependent event did not occur
+						} else {
+							// Adjust probability based on the dependent event's probability
+							adjustedProb *= dependentEventProb
+						}
+					}
 
 					// Adjust probability based on confidence standard deviation if applicable
 					if event.ConfidenceStdDev != nil {
@@ -53,6 +66,7 @@ func MonteCarloSimulation(events *[]Event, numSimulations int) {
 						}
 					}
 					batchResults[k] = [3]int{k, result, impact} // Include impact in results
+					eventResults[event.Name] = adjustedProb
 				}
 				resultsChan <- batchResults
 			}

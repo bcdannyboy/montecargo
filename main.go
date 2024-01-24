@@ -58,8 +58,6 @@ func main() {
 			MinImpact:  float64Pointer(1500000),
 			MaxImpact:  float64Pointer(3000000),
 		},
-
-		// Survey-provided events with standard deviations
 		{
 			Name:             "Insider Threat",
 			LowerProb:        0.05,
@@ -88,13 +86,18 @@ func main() {
 			MinImpactStdDev:  float64Pointer(100000),
 			MaxImpactStdDev:  float64Pointer(300000),
 		},
-
 		// ... other events ...
 	}
 
+	// Define dependencies
+	dependencies := map[string]string{
+		"Ransomware Attack": "Data Breach", // Ransomware Attack depends on Data Breach
+		// ... other dependencies ...
+	}
+
 	// Perform Monte Carlo Simulation
-	numSimulations := 100_000_000
-	montecargo.MonteCarloSimulation(&events, numSimulations)
+	numSimulations := 1_000_000
+	montecargo.MonteCarloSimulation(&events, numSimulations, dependencies)
 
 	// Output the results and calculate standard deviation
 	for _, event := range events {
