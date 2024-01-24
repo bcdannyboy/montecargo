@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math/rand"
+	"runtime"
 	"time"
 
 	"github.com/bcdannyboy/montecargo/montecargo"
@@ -13,6 +14,7 @@ func float64Pointer(value float64) *float64 {
 }
 
 func main() {
+	startTime := time.Now()
 	rand.Seed(time.Now().UnixNano())
 
 	events := []montecargo.Event{
@@ -80,7 +82,7 @@ func main() {
 	}
 
 	// Perform Monte Carlo Simulation
-	numSimulations := 1_000_000
+	numSimulations := 10_000_000
 	montecargo.MonteCarloSimulation(&events, numSimulations, dependencies)
 
 	// Output the results and calculate standard deviation
@@ -116,4 +118,14 @@ func main() {
 			fmt.Printf("  Expected Financial Impact Range within %s: $%.2f to $%.2f\n", timeframeStr, impactLowerBound, impactUpperBound)
 		}
 	}
+
+	depCount := 0
+	for _, event := range events {
+		if deps, exists := dependencies[event.Name]; exists {
+			depCount += len(deps)
+		}
+	}
+
+	numCPU := runtime.NumCPU()
+	fmt.Printf("performed %d simulations with %d items and %d dependencies in %s on %d CPU cores\n", numSimulations, len(events), depCount, time.Since(startTime), numCPU)
 }
