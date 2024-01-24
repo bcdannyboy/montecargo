@@ -39,3 +39,38 @@ func adjustProbabilityWithConfidenceStdDev(probability, confidenceStdDev float64
 
 	return adjustedProbability
 }
+
+func adjustDependentProbability(probability, dependencyProb, dependencyStdDev float64, localRand *rand.Rand) float64 {
+	// scale the probability by the dependency's probability
+	// and apply a random adjustment based on the dependency's standard deviation
+	adjustedProbability := probability * dependencyProb
+	adjustmentFactor := localRand.NormFloat64() * dependencyStdDev
+	adjustedProbability += adjustmentFactor
+
+	// Ensure the adjusted probability is within the range [0, 1]
+	if adjustedProbability < 0 {
+		adjustedProbability = 0
+	} else if adjustedProbability > 1 {
+		adjustedProbability = 1
+	}
+
+	return adjustedProbability
+}
+
+func calculateEventStats(events []Event, numSimulations int) map[string](struct {
+	Probability float64
+	StdDev      float64
+}) {
+	eventStats := make(map[string](struct {
+		Probability float64
+		StdDev      float64
+	}))
+	for _, event := range events {
+		probability, stdDev, _, _ := MeanSTD(event, numSimulations)
+		eventStats[event.Name] = struct {
+			Probability float64
+			StdDev      float64
+		}{Probability: probability, StdDev: stdDev}
+	}
+	return eventStats
+}

@@ -31,3 +31,8 @@ type Event struct {
 	ImpactSum          float64
 	ImpactSumOfSquares float64
 }
+
+type Dependency struct {
+	EventName string
+	Condition string // "happens" or "not happens"
+}
