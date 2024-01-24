@@ -17,44 +17,113 @@ func main() {
 
 	// Define cybersecurity events with various timeframes
 	events := []montecargo.Event{
-		{"Phishing Attack", 0.70, 0.90, nil, nil, 0.90, montecargo.Yearly, nil, 0, 0},
-		{"Ransomware Attack", 0.15, 0.45, nil, nil, 0.85, montecargo.Yearly, nil, 0, 0},
-		{"Data Breach", 0.05, 0.25, nil, nil, 0.80, montecargo.EveryTwoYears, nil, 0, 0},
-		{"Breach Detection", 0.50, 0.70, nil, nil, 0.95, montecargo.Monthly, nil, 0, 0},
-		{"System Compromise", 0.10, 0.30, nil, nil, 0.75, montecargo.EveryFiveYears, nil, 0, 0},
-		{"Compliance Failure", 0.03, 0.20, nil, nil, 0.90, montecargo.EveryTenYears, nil, 0, 0},
-		{"Reputation Damage", 0.20, 0.40, nil, nil, 0.85, montecargo.Yearly, nil, 0, 0},
-		// Survey-based events with standard deviations
-		{"Insider Threat", 0.05, 0.15, float64Pointer(0.01), float64Pointer(0.02), 0.80, montecargo.EveryTwoYears, nil, 0, 0},
-		{"DDoS Attack", 0.30, 0.60, float64Pointer(0.05), float64Pointer(0.07), 0.90, montecargo.Monthly, nil, 0, 0},
-		{"Regular Audit", 0.90, 0.95, nil, nil, 0.99, montecargo.Yearly, nil, 0, 0},
-		{"Emergency Patching", 0.40, 0.70, nil, nil, 0.85, montecargo.Weekly, nil, 0, 0},
-		{"User Training Failure", 0.10, 0.30, nil, nil, 0.70, montecargo.Yearly, nil, 0, 0},
+		{
+			Name:       "Phishing Attack",
+			LowerProb:  0.70,
+			UpperProb:  0.90,
+			Confidence: 0.90,
+			Timeframe:  montecargo.Yearly,
+		},
+		{
+			Name:       "Ransomware Attack",
+			LowerProb:  0.15,
+			UpperProb:  0.45,
+			Confidence: 0.85,
+			Timeframe:  montecargo.Yearly,
+			MinImpact:  float64Pointer(500000),
+			MaxImpact:  float64Pointer(2000000),
+		},
+		{
+			Name:       "Data Breach",
+			LowerProb:  0.05,
+			UpperProb:  0.25,
+			Confidence: 0.80,
+			Timeframe:  montecargo.EveryTwoYears,
+			MinImpact:  float64Pointer(1000000),
+			MaxImpact:  float64Pointer(5000000),
+		},
+		{
+			Name:       "Breach Detection",
+			LowerProb:  0.50,
+			UpperProb:  0.70,
+			Confidence: 0.95,
+			Timeframe:  montecargo.Monthly,
+		},
+		{
+			Name:       "System Compromise",
+			LowerProb:  0.10,
+			UpperProb:  0.30,
+			Confidence: 0.75,
+			Timeframe:  montecargo.EveryFiveYears,
+			MinImpact:  float64Pointer(1500000),
+			MaxImpact:  float64Pointer(3000000),
+		},
+
+		// Survey-provided events with standard deviations
+		{
+			Name:             "Insider Threat",
+			LowerProb:        0.05,
+			UpperProb:        0.20,
+			LowerProbStdDev:  float64Pointer(0.02),
+			UpperProbStdDev:  float64Pointer(0.03),
+			Confidence:       0.70,
+			ConfidenceStdDev: float64Pointer(0.05),
+			Timeframe:        montecargo.Yearly,
+			MinImpact:        float64Pointer(300000),
+			MaxImpact:        float64Pointer(1500000),
+			MinImpactStdDev:  float64Pointer(50000),
+			MaxImpactStdDev:  float64Pointer(200000),
+		},
+		{
+			Name:             "IT System Failure",
+			LowerProb:        0.10,
+			UpperProb:        0.40,
+			LowerProbStdDev:  float64Pointer(0.05),
+			UpperProbStdDev:  float64Pointer(0.10),
+			Confidence:       0.60,
+			ConfidenceStdDev: float64Pointer(0.07),
+			Timeframe:        montecargo.EveryTwoYears,
+			MinImpact:        float64Pointer(200000),
+			MaxImpact:        float64Pointer(1000000),
+			MinImpactStdDev:  float64Pointer(100000),
+			MaxImpactStdDev:  float64Pointer(300000),
+		},
+
+		// ... other events ...
 	}
 
 	// Perform Monte Carlo Simulation
-	numSimulations := 10000000
+	numSimulations := 100_000_000
 	montecargo.MonteCarloSimulation(&events, numSimulations)
 
 	// Output the results and calculate standard deviation
 	for _, event := range events {
-		probability, stdDev := montecargo.MeanSTD(event, numSimulations)
+		probability, probStdDev, impactMean, impactStdDev := montecargo.MeanSTD(event, numSimulations)
 
-		// Calculate the upper and lower bounds
-		lowerBound := probability - stdDev
-		if lowerBound < 0 {
-			lowerBound = 0 // Ensure the lower bound is not negative
+		// Calculate the upper and lower bounds for probability
+		probLowerBound := probability - probStdDev
+		if probLowerBound < 0 {
+			probLowerBound = 0 // Ensure the lower bound is not negative
 		}
-		upperBound := probability + stdDev
-		if upperBound > 1 {
-			upperBound = 1 // Ensure the upper bound does not exceed 100%
+		probUpperBound := probability + probStdDev
+		if probUpperBound > 1 {
+			probUpperBound = 1 // Ensure the upper bound does not exceed 100%
 		}
 
 		// Print the results
 		fmt.Printf("Event: %s\n", event.Name)
 		fmt.Printf("  Probability: %.2f%%\n", probability*100)
-		fmt.Printf("  Standard Deviation: %.2f%%\n", stdDev*100)
-		fmt.Printf("  Chance within timeframe: %.2f%% to %.2f%%\n", lowerBound*100, upperBound*100)
-	}
+		fmt.Printf("  Standard Deviation: %.2f%%\n", probStdDev*100)
+		fmt.Printf("  Chance within timeframe: %.2f%% to %.2f%%\n", probLowerBound*100, probUpperBound*100)
 
+		// Print impact information if applicable
+		if event.MinImpact != nil || event.MaxImpact != nil {
+			impactLowerBound := impactMean - impactStdDev
+			impactUpperBound := impactMean + impactStdDev
+
+			fmt.Printf("  Mean Financial Impact: $%.2f\n", impactMean)
+			fmt.Printf("  Financial Impact Standard Deviation: $%.2f\n", impactStdDev)
+			fmt.Printf("  Expected Financial Impact Range: $%.2f to $%.2f\n", impactLowerBound, impactUpperBound)
+		}
+	}
 }
