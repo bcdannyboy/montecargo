@@ -1,6 +1,6 @@
 # montecargo
 
-`montecargo` is a Monte Carlo simulation tool implemented in Go (Golang), designed for assessing and quantifying risks in various scenarios, particularly useful in cybersecurity risk analysis. This package allows users to simulate different events with varying probabilities and impacts, providing a statistical approach to risk management.
+`montecargo` is a Monte Carlo simulation tool implemented in Go (Golang), designed for assessing and quantifying risks in various scenarios, particularly useful in (and developed with a focus on) cybersecurity risk analysis. This package allows users to simulate different events with varying probabilities and impacts, providing a statistical approach to risk management.
 
 ## Features
 
