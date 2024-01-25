@@ -9,7 +9,8 @@
 - **Multivariate Event Dependencies:** Define multiple dependencies between events to simulate cascading effects. ('happens' or 'not happens' conditions)
 - **Timeframe Adjustments:** Adjust event probabilities based on different timeframes (e.g., daily, yearly).
 - **Impact Analysis:** Calculate financial impacts of events, including mean and standard deviation.
-- **Cost Savings Analysis:** Evaluate the financial benefits of preventive measures and cost-saving events.
+- **Implementation Cost Analysis:** Calculate the cost of implementing preventive measures and cost-saving events.
+- **Cost Savings Analysis:** Evaluate the financial benefits of preventive measures and cost-saving events. This number is impacted by the cost of implementation for cost saving events.
 - **Concurrency Support:** Leverages Go's concurrency features for efficient simulation over multiple CPU cores.
 
 ## Installation
