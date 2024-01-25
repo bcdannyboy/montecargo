@@ -1,6 +1,7 @@
 package montecargo
 
 import (
+	"fmt"
 	"math"
 	"math/rand"
 )
@@ -54,15 +55,37 @@ func adjustDependentProbability(probability, dependencyProb, dependencyStdDev fl
 	return adjustedProbability
 }
 
-func CalculateEventStats(simulationResults map[string]EventResult, numSimulations int) map[string]EventStat {
+func CalculateEventStats(simulationResults map[string]EventResult, numSimulations int, events []Event) map[string]EventStat {
 	eventStats := make(map[string]EventStat)
 
-	for eventName, eventResult := range simulationResults {
+	for _, event := range events {
+		eventResult, exists := simulationResults[event.Name]
+		if !exists {
+			fmt.Printf("Event result not found for %s\n", event.Name)
+			continue
+		}
+
 		probability, stdDev, _, _ := MeanSTD(eventResult, numSimulations)
-		eventStats[eventName] = EventStat{
+		stat := EventStat{
 			Probability: probability,
 			StdDev:      stdDev,
 		}
+
+		// Calculate the bounds for the cost of implementation if applicable
+		if event.CostOfImplementationLower != nil && event.CostOfImplementationUpper != nil {
+			lowerCost := *event.CostOfImplementationLower
+			upperCost := *event.CostOfImplementationUpper
+
+			if event.CostOfImplementationLowerStdDev != nil {
+				lowerCost -= *event.CostOfImplementationLowerStdDev // Minimum
+				upperCost += *event.CostOfImplementationUpperStdDev // Maximum
+			}
+
+			stat.MinCostOfImplementation = math.Max(0, lowerCost) // Ensure it's not negative
+			stat.MaxCostOfImplementation = upperCost
+		}
+
+		eventStats[event.Name] = stat
 	}
 
 	return eventStats
@@ -153,14 +176,16 @@ func calculateImpact(event Event, probability float64, localRand *rand.Rand) int
 	return int(impact * probability) // Positive impact for losses
 }
 
-func calculateTotalMitigatedImpact(costSavingEvent Event, events []Event, eventStats map[string]EventStat, dependencies map[string][]Dependency) float64 {
+func calculateTotalMitigatedImpact(costSavingEvent Event, events []Event, eventStats map[string]EventStat, dependencies map[string][]Dependency, localRand *rand.Rand) (float64, float64, float64) {
 	totalSavings := 0.0
+	var lowerCost, upperCost float64
+
 	costSavingEventStat, exists := eventStats[costSavingEvent.Name]
 	if !exists {
-		return 0.0
+		fmt.Printf("Cost-saving event stat not found for %s\n", costSavingEvent.Name)
+		return 0.0, 0.0, 0.0
 	}
 
-	// Determine the number of occurrences based on the timeframe
 	occurrences := getOccurrencesPerYear(costSavingEvent.Timeframe)
 
 	for _, dep := range dependencies[costSavingEvent.Name] {
@@ -176,5 +201,22 @@ func calculateTotalMitigatedImpact(costSavingEvent Event, events []Event, eventS
 			}
 		}
 	}
-	return totalSavings
+
+	if costSavingEvent.CostOfImplementationLower != nil {
+		lowerCost = *costSavingEvent.CostOfImplementationLower
+		if costSavingEvent.CostOfImplementationLowerStdDev != nil {
+			lowerCostAdjustment := localRand.NormFloat64() * *costSavingEvent.CostOfImplementationLowerStdDev
+			lowerCost += lowerCostAdjustment
+		}
+	}
+
+	if costSavingEvent.CostOfImplementationUpper != nil {
+		upperCost = *costSavingEvent.CostOfImplementationUpper
+		if costSavingEvent.CostOfImplementationUpperStdDev != nil {
+			upperCostAdjustment := localRand.NormFloat64() * *costSavingEvent.CostOfImplementationUpperStdDev
+			upperCost += upperCostAdjustment
+		}
+	}
+
+	return totalSavings, lowerCost, upperCost
 }

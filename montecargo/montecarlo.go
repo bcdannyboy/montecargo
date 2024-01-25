@@ -1,5 +1,9 @@
 package montecargo
 
+import (
+	"fmt"
+)
+
 // MonteCarloSimulation orchestrates the Monte Carlo simulation process.
 func MonteCarloSimulation(events []Event, numSimulations int, dependencies map[string][]Dependency) SimulationResult {
 	// Filter events into independent and dependent categories
@@ -7,18 +11,24 @@ func MonteCarloSimulation(events []Event, numSimulations int, dependencies map[s
 	dependentEvents := filterDependentEvents(events, dependencies)
 
 	// Run simulation for independent events
-	independentResults := simulate(independentEvents, numSimulations, map[string]EventStat{}, dependencies)
+	independentResults, independentEventStats := simulate(independentEvents, numSimulations, dependencies, make(map[string]EventStat))
 
 	// Run simulation for dependent events
-	dependentResults := simulateDependent(dependentEvents, numSimulations, dependencies, map[string]EventStat{})
+	// Use the independentEventStats as initial stats for dependent events
+	dependentResults, dependentEventStats := simulateDependent(dependentEvents, numSimulations, dependencies, independentEventStats)
 
 	// Combine results from independent and dependent simulations
 	combinedResults := combineSimulationResults(independentResults, dependentResults)
 
-	// Calculate statistics for all events based on the combined results
-	// allEventStats := CalculateEventStats(combinedResults.EventResults, numSimulations)
+	// Use the most updated event stats (from dependentEventStats)
+	finalEventStats := combineEventStats(independentEventStats, dependentEventStats)
+
+	fmt.Println("Event Stats after calculation:")
+	for eventName, stat := range finalEventStats {
+		fmt.Printf("Event: %s, Stat: %+v\n", eventName, stat)
+	}
 
 	// Convert the map of EventResults to a SimulationResult
-	finalResults := SimulationResult{EventResults: combinedResults.EventResults}
+	finalResults := SimulationResult{EventResults: combinedResults.EventResults, EventStats: finalEventStats}
 	return finalResults
 }

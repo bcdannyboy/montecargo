@@ -31,6 +31,8 @@ The core of montecargo is the Event type, which represents a potential event tha
     - *MinImpact* and *MaxImpact*: (Optional) Define the minimum and maximum financial impacts of the event.
     - *MinImpactStdDev* and *MaxImpactStdDev*: (Optional) Standard deviations for the minimum and maximum impacts.
     - *IsCostSaving*: Indicates if the event is a cost-saving measure.
+    - *CostOfImplementationLower* and *CostOfImplementationUpper* (Optional): The lower and upper bounds of cost of implementing the event (e.g., cost of a security control, will offset the control's overall cost savings).
+    - *CostOfImplementationLowerStdDev* and *CostOfImplementationUpperStdDev* (Optional): Standard deviation for the cost of implementation.
 
 ##  TimeFrames
 

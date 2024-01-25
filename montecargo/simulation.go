@@ -7,7 +7,10 @@ import (
 	"time"
 )
 
+var mutex sync.Mutex
+
 // Simulate events without dependencies
+
 func simulateEvents(events []Event, numSimulations int, eventStats map[string]EventStat, dependencies map[string][]Dependency) SimulationResult {
 	localResult := SimulationResult{EventResults: make(map[string]EventResult)}
 	cpuCores := runtime.NumCPU()
@@ -26,20 +29,14 @@ func simulateEvents(events []Event, numSimulations int, eventStats map[string]Ev
 					result = 1
 					impact := calculateImpact(event, adjustedProb, localRand)
 
-					// Aggregate results for each event
+					mutex.Lock()
 					eventResult := localResult.EventResults[event.Name]
 					eventResult.Sum += result
 					eventResult.SumOfSquares += float64(result * result)
 					eventResult.ImpactSum += float64(impact)
 					eventResult.ImpactSumOfSquares += float64(impact * impact)
-
-					// Handle cost-saving items
-					if event.IsCostSaving {
-						mitigatedImpact := calculateTotalMitigatedImpact(event, events, eventStats, dependencies)
-						eventResult.ImpactSum += mitigatedImpact // Add as positive value
-					}
-
 					localResult.EventResults[event.Name] = eventResult
+					mutex.Unlock()
 				}
 			}
 		}
@@ -59,7 +56,6 @@ func simulateDependentEvents(events []Event, numSimulations int, dependencies ma
 			for _, event := range events {
 				adjustedProb := adjustProbabilityForTimeframe(event)
 
-				// Adjust probability based on dependencies
 				if dependentConditions, exists := dependencies[event.Name]; exists {
 					for _, condition := range dependentConditions {
 						dependencyStats := eventStats[condition.EventName]
@@ -76,20 +72,14 @@ func simulateDependentEvents(events []Event, numSimulations int, dependencies ma
 					result = 1
 					impact := calculateImpact(event, adjustedProb, localRand)
 
-					// Aggregate results for each event
+					mutex.Lock()
 					eventResult := localResult.EventResults[event.Name]
 					eventResult.Sum += result
 					eventResult.SumOfSquares += float64(result * result)
 					eventResult.ImpactSum += float64(impact)
 					eventResult.ImpactSumOfSquares += float64(impact * impact)
-
-					// Handle cost-saving items
-					if event.IsCostSaving {
-						mitigatedImpact := calculateTotalMitigatedImpact(event, events, eventStats, dependencies)
-						eventResult.ImpactSum += mitigatedImpact // Add as positive value
-					}
-
 					localResult.EventResults[event.Name] = eventResult
+					mutex.Unlock()
 				}
 			}
 		}
@@ -98,16 +88,21 @@ func simulateDependentEvents(events []Event, numSimulations int, dependencies ma
 	return localResult
 }
 
-func simulate(events []Event, numSimulations int, eventStats map[string]EventStat, dependencies map[string][]Dependency) SimulationResult {
+func simulate(events []Event, numSimulations int, dependencies map[string][]Dependency, initialEventStats map[string]EventStat) (SimulationResult, map[string]EventStat) {
 	finalResult := SimulationResult{EventResults: make(map[string]EventResult)}
 	var wg sync.WaitGroup
 	resultsChan := make(chan SimulationResult, runtime.NumCPU())
+
+	// Use the provided initialEventStats if available; otherwise, create a new map.
+	eventStats := initialEventStats
+	if len(eventStats) == 0 {
+		eventStats = make(map[string]EventStat)
+	}
 
 	for i := 0; i < runtime.NumCPU(); i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			// Pass the additional parameters to simulateEvents
 			result := simulateEvents(events, numSimulations/runtime.NumCPU(), eventStats, dependencies)
 			resultsChan <- result
 		}()
@@ -119,14 +114,17 @@ func simulate(events []Event, numSimulations int, eventStats map[string]EventSta
 	// Aggregate results from all goroutines
 	for result := range resultsChan {
 		for eventName, eventResult := range result.EventResults {
-			// Aggregate results for each event
 			finalResult.EventResults[eventName] = aggregateEventResults(finalResult.EventResults[eventName], eventResult)
 		}
 	}
-	return finalResult
+
+	// Calculate event stats after simulation
+	eventStats = CalculateEventStats(finalResult.EventResults, numSimulations, events)
+
+	return finalResult, eventStats
 }
 
-func simulateDependent(events []Event, numSimulations int, dependencies map[string][]Dependency, eventStats map[string]EventStat) SimulationResult {
+func simulateDependent(events []Event, numSimulations int, dependencies map[string][]Dependency, updatedEventStats map[string]EventStat) (SimulationResult, map[string]EventStat) {
 	finalResult := SimulationResult{EventResults: make(map[string]EventResult)}
 	var wg sync.WaitGroup
 	resultsChan := make(chan SimulationResult, runtime.NumCPU())
@@ -135,7 +133,7 @@ func simulateDependent(events []Event, numSimulations int, dependencies map[stri
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			result := simulateDependentEvents(events, numSimulations/runtime.NumCPU(), dependencies, eventStats)
+			result := simulateDependentEvents(events, numSimulations/runtime.NumCPU(), dependencies, updatedEventStats)
 			resultsChan <- result
 		}()
 	}
@@ -146,10 +144,11 @@ func simulateDependent(events []Event, numSimulations int, dependencies map[stri
 	// Aggregate results from all goroutines
 	for result := range resultsChan {
 		for eventName, eventResult := range result.EventResults {
-			// Aggregate results for each event
 			finalResult.EventResults[eventName] = aggregateEventResults(finalResult.EventResults[eventName], eventResult)
 		}
 	}
 
-	return finalResult
+	// Update event stats after dependent simulation
+	eventStats := CalculateEventStats(finalResult.EventResults, numSimulations, events)
+	return finalResult, eventStats
 }

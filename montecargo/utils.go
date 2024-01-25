@@ -51,3 +51,30 @@ func combineSimulationResults(independentResults, dependentResults SimulationRes
 	}
 	return combinedResults
 }
+
+func combineEventStats(independentStats, dependentStats map[string]EventStat) map[string]EventStat {
+	combinedStats := make(map[string]EventStat)
+
+	// Combine independent stats
+	for eventName, stat := range independentStats {
+		combinedStats[eventName] = stat
+	}
+
+	// Update with dependent stats
+	for eventName, stat := range dependentStats {
+		if existingStat, exists := combinedStats[eventName]; exists {
+			// Combine the stats, preserving cost of implementation data
+			combinedStat := EventStat{
+				Probability:             stat.Probability,
+				StdDev:                  stat.StdDev,
+				MinCostOfImplementation: existingStat.MinCostOfImplementation,
+				MaxCostOfImplementation: existingStat.MaxCostOfImplementation,
+			}
+			combinedStats[eventName] = combinedStat
+		} else {
+			combinedStats[eventName] = stat
+		}
+	}
+
+	return combinedStats
+}
