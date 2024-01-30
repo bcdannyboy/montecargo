@@ -7,6 +7,7 @@ import (
 
 	"github.com/bcdannyboy/montecargo/montecargo"
 	testing_utils "github.com/bcdannyboy/montecargo/testing/testing_utils"
+	"github.com/gonum/stat"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -242,8 +243,7 @@ var events = []montecargo.Event{
 }
 
 func TestProbabilityCalculations(t *testing.T) {
-
-	// randomize events array
+	// randomize the order of events
 	shuffled_events := testing_utils.ShuffleArray(events)
 
 	dependencies := map[string][]montecargo.Dependency{}
@@ -252,7 +252,6 @@ func TestProbabilityCalculations(t *testing.T) {
 	simulationResult := montecargo.MonteCarloSimulation(shuffled_events, numSimulations, dependencies)
 
 	for _, event := range shuffled_events {
-
 		eventStat := simulationResult.EventStats[event.Name]
 
 		expectedAvg := testing_utils.CalculateExpectedAverage(event, dependencies, simulationResult.EventStats)
@@ -277,11 +276,44 @@ func TestProbabilityCalculations(t *testing.T) {
 		fmt.Printf("  - Confidence Threshold: %.2f%%\n", confidenceThreshold*100)
 		fmt.Printf("  - Allowable Range: [%.2f%%, %.2f%%] based on 0.5*stdDev: %.2f%%, stdDev: %.2f%%\n", allowableLower*100, allowableUpper*100, 0.5*stdDev*100, stdDev*100)
 
-		withinRange := confidenceScore > allowableLower &&
-			confidenceScore < allowableUpper
+		withinRange := confidenceScore > allowableLower && confidenceScore < allowableUpper
+		assert.True(t, withinRange, "Confidence score must be within range for event %s", event.Name)
 
-		assert.True(t, withinRange,
-			"Confidence score must be within range for event %s", event.Name)
+		fmt.Printf("\nRunning statistical analysis to verify confidence score for event '%s'...\n", event.Name)
+		// Statistical Analysis
+		// Run multiple simulations to get a distribution of confidence scores
+		numRuns := 100
+		confidenceScores := make([]float64, numRuns)
+		for i := 0; i < numRuns; i++ {
+			fmt.Printf("\r - Running simulation %d/%d...", i+1, numRuns)
+			simResult := montecargo.MonteCarloSimulation(shuffled_events, numSimulations, dependencies)
+			eventStat := simResult.EventStats[event.Name]
+			actualAvg := eventStat.Probability
+			errorRate := math.Abs(actualAvg - expectedAvg)
+			confidenceScores[i] = testing_utils.CalculateAdjustedConfidenceScore(errorRate, stdDev, event)
+		}
+		fmt.Printf("\r\n")
+
+		// Calculate mean and standard deviation of confidence scores
+		meanConfidence, stdDevConfidence := stat.MeanStdDev(confidenceScores, nil)
+
+		// Check if mean confidence score is within the allowable range
+		meanWithinRange := meanConfidence > allowableLower && meanConfidence < allowableUpper
+		assert.True(t, meanWithinRange, "Mean confidence score must be within range for event %s", event.Name)
+		if !meanWithinRange {
+			fmt.Printf("  - [FAIL] Mean confidence score is not within range for event %s\n", event.Name)
+		} else {
+			fmt.Printf("  - [PASS] Mean confidence score is within range for event %s\n", event.Name)
+		}
+		// Check if variability of confidence scores is acceptable
+		acceptableStdDev := stdDevConfidence < 0.1 // Set an acceptable standard deviation threshold
+		assert.True(t, acceptableStdDev, "Variability of confidence scores should be within acceptable limits for event %s", event.Name)
+		if !acceptableStdDev {
+			fmt.Printf("  - [FAIL] Variability of confidence scores is not within acceptable limits for event %s\n", event.Name)
+		} else {
+			fmt.Printf("  - [PASS] Variability of confidence scores is within acceptable limits for event %s\n", event.Name)
+		}
+		fmt.Println()
 	}
 }
 
