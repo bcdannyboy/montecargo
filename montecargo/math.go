@@ -186,7 +186,7 @@ func calculateTotalMitigatedImpact(costSavingEvent Event, events []Event, eventS
 		return 0.0, 0.0, 0.0
 	}
 
-	occurrences := getOccurrencesPerYear(costSavingEvent.Timeframe)
+	occurrences := GetOccurrencesPerYear(costSavingEvent.Timeframe)
 
 	for _, dep := range dependencies[costSavingEvent.Name] {
 		if dep.Condition == "not happens" {

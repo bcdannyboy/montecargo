@@ -46,7 +46,7 @@ func adjustProbabilityForTimeframe(event Event) float64 {
 	}
 }
 
-func getOccurrencesPerYear(timeframe Timeframe) float64 {
+func GetOccurrencesPerYear(timeframe Timeframe) float64 {
 	switch timeframe {
 	case Daily:
 		return 365

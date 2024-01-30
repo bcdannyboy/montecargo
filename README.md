@@ -123,3 +123,20 @@ Dependencies are defined in a map where the key is the name of the dependent eve
 
 For more advanced scenarios, including events with standard deviations for probabilities and impacts, refer to the provided example in the main package.
 
+## Testing
+
+Testing is available for the `montecargo` package. It is important to remember that a montecarlo simulation involves random numbers, so the results of the tests will vary and may not always pass. However, the tests are designed to be robust enough to pass most of the time. It is important to note that the tests are not designed to test the accuracy of the simulation results, but rather to ensure that the simulation results are consistent across different numbers of simulations and that results fall into generally expected ranges given different inputs and error / variance tolerances.
+
+To run the tests, use the following command within the `testing` directory:
+
+`go test -timeout 30m`
+
+Current tests implemented:
+
+- convergence of simulation results across different numbers of simulations
+- confidence score threshold and calculations for independent event probabilities
+
+## TODOs
+
+- [ ] Add more tests for impact and dependent event calculations
+- [ ] Add more tests for concurrency

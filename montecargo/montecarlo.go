@@ -1,9 +1,5 @@
 package montecargo
 
-import (
-	"fmt"
-)
-
 // MonteCarloSimulation orchestrates the Monte Carlo simulation process.
 func MonteCarloSimulation(events []Event, numSimulations int, dependencies map[string][]Dependency) SimulationResult {
 	// Filter events into independent and dependent categories
@@ -22,11 +18,6 @@ func MonteCarloSimulation(events []Event, numSimulations int, dependencies map[s
 
 	// Use the most updated event stats (from dependentEventStats)
 	finalEventStats := combineEventStats(independentEventStats, dependentEventStats)
-
-	fmt.Println("Event Stats after calculation:")
-	for eventName, stat := range finalEventStats {
-		fmt.Printf("Event: %s, Stat: %+v\n", eventName, stat)
-	}
 
 	// Convert the map of EventResults to a SimulationResult
 	finalResults := SimulationResult{EventResults: combinedResults.EventResults, EventStats: finalEventStats}
