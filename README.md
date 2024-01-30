@@ -131,6 +131,8 @@ To run the tests, use the following command within the `testing` directory:
 
 `go test -timeout 30m`
 
+Note: The timeout flag is necessary to ensure that the tests have enough time to complete. The tests can take a while to run, especially with a large number of simulations, increase the timeout as necessary.
+
 Current tests implemented:
 
 - convergence of simulation results across different numbers of simulations
